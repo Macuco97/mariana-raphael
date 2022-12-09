@@ -1,6 +1,12 @@
 import nc from "next-connect"
 import multer from 'multer'
 import fs from 'fs'
+const {MongoClient} = require('mongodb')
+const mongodbURI = process.env.MONGODB_URI
+const client = new MongoClient(mongodbURI)
+const databaseName = 'product-list'
+const collectionName = 'products'
+
 
 const uploadPath = __dirname
 console.log(uploadPath)
@@ -11,14 +17,25 @@ const upload = multer({
   }),
 });
 
-const createItem = (req, res) => {
+const createItem = async (req, res) => {
   let { body, method, file } = req
-  file = fs.readFileSync(file.path)
+  const image = fs.readFileSync(file.path)
+  await client.connect()
+  const database = await client.db(databaseName)
+  const collection = await database.collection(collectionName)
+  const { place, price } = body
+  const insertedObject = {
+    place: place, 
+    price: price, 
+    image: image
+  }
+  const insertResponse = await collection.insertOne(insertedObject)
+  let findResponse = await collection.find({}).toArray()
   res.json({
-            body: body, 
-            method: method,
-            file: file
+            insert: insertResponse,
+            find: findResponse
           })
+  fs.unlinkSync(file.path)
 }
 
 
