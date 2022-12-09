@@ -1,5 +1,6 @@
 import nc from "next-connect"
 import multer from 'multer'
+import fs from 'fs'
 
 const uploadPath = __dirname
 console.log(uploadPath)
@@ -9,6 +10,16 @@ const upload = multer({
     filename: (req, file, cb) => cb(null, file.originalname),
   }),
 });
+
+const createItem = (req, res) => {
+  let { body, method, file } = req
+  file = fs.readFileSync(file.path)
+  res.json({
+            body: body, 
+            method: method,
+            file: file
+          })
+}
 
 
 const database = nc({
@@ -23,10 +34,10 @@ const database = nc({
   .use(upload.single('image'))
   .get((req, res) => {
     const file  = req.file
-    res.send('Upload sucess');
+    res.send(file)
   })
-  .post((req, res) => {
-    res.json({ hello: "world" });
+  .post((req, res) => { 
+    createItem(req, res)
   })
   .put(async (req, res) => {
     res.end("async/await is also supported!");
