@@ -38,6 +38,16 @@ const createItem = async (req, res) => {
   fs.unlinkSync(file.path)
 }
 
+const readItem = async (req, res) => {
+  await client.connect()
+  const database = await client.db(databaseName)
+  const collection = await database.collection(collectionName)
+  const findResponse = await collection.find({}).toArray()
+  res.json({
+    find: findResponse
+  })
+}
+
 
 const database = nc({
   onError: (err, req, res, next) => {
@@ -50,8 +60,7 @@ const database = nc({
 })
   .use(upload.single('image'))
   .get((req, res) => {
-    const file  = req.file
-    res.send(file)
+    readItem(req, res)
   })
   .post((req, res) => { 
     createItem(req, res)
