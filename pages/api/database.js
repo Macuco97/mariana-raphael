@@ -1,41 +1,21 @@
 import nc from "next-connect"
-import multer from 'multer'
-import fs from 'fs'
-const {MongoClient} = require('mongodb')
+const {MongoClient, ObjectId} = require('mongodb')
 const mongodbURI = process.env.MONGODB_URI
 const client = new MongoClient(mongodbURI)
-const databaseName = 'product-list'
-const collectionName = 'products'
-
-
-const uploadPath = __dirname
-console.log(uploadPath)
-const upload = multer({
-  storage: multer.diskStorage({
-    destination: './public/uploads',
-    filename: (req, file, cb) => cb(null, file.originalname),
-  }),
-});
+const databaseName = 'places'
+const collectionName = 'places'
 
 const createItem = async (req, res) => {
-  let { body, method, file } = req
-  const image = fs.readFileSync(file.path)
   await client.connect()
   const database = await client.db(databaseName)
   const collection = await database.collection(collectionName)
-  const { place, price } = body
-  const insertedObject = {
-    place: place, 
-    price: price, 
-    image: image
-  }
-  const insertResponse = await collection.insertOne(insertedObject)
+  const insertResponse = await collection.insertOne(req.body)
   let findResponse = await collection.find({}).toArray()
   res.json({
             insert: insertResponse,
             find: findResponse
           })
-  fs.unlinkSync(file.path)
+  client.close
 }
 
 const readItem = async (req, res) => {
@@ -46,8 +26,36 @@ const readItem = async (req, res) => {
   res.json({
     find: findResponse
   })
+  client.close
 }
 
+const updateItem = async (req, res) => {
+  await client.connect()
+  const { id, collaboration, bought } = req.body
+  const database = await client.db(databaseName)
+  const collection = await database.collection(collectionName)
+  const updateResponse = await collection.updateOne({_id: ObjectId(id)}, {$inc: {bought: bought}, $push: {collaboration: collaboration}})
+  const findResponse = await collection.find({}).toArray()
+  res.json({
+    update: updateResponse, 
+    find: findResponse
+  })
+  client.close()
+}
+
+const deleteItem = async (req, res) => {
+  await client.connect()
+  const { id } = req.body
+  const database = await client.db(databaseName)
+  const collection = await database.collection(collectionName)
+  const deleteResponse = await collection.deleteOne({_id: ObjectId(id)})
+  const findResponse = await collection.find({}).toArray()
+  res.json({
+    delete: deleteResponse, 
+    find: findResponse
+  })
+  client.close()
+}
 
 const database = nc({
   onError: (err, req, res, next) => {
@@ -58,7 +66,6 @@ const database = nc({
     res.status(404).end("Page is not found");
   },
 })
-  .use(upload.single('image'))
   .get((req, res) => {
     readItem(req, res)
   })
@@ -66,16 +73,11 @@ const database = nc({
     createItem(req, res)
   })
   .put(async (req, res) => {
-    res.end("async/await is also supported!");
+    updateItem(req, res)
   })
-  .patch(async (req, res) => {
-    throw new Error("Throws me around! Error can be caught and handled.");
+  .delete(async (req, res) => {
+    deleteItem(req, res)
   });
 
 export default database
 
-export const config = {
-  api: {
-    bodyParser: false, // Disallow body parsing, consume as stream
-  },
-}
